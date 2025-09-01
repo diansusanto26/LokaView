@@ -13,6 +13,7 @@ Route::middleware('auth')->group(function () {
     Route::post('/logout', [AuthController::class, 'logout'])->name('logout');
 
     Route::get('/series/{slug}/play/{episodeId}', [SeriesController::class, 'play'])->name('series.play');
+    Route::get('/series/{episode}/stream', [SeriesController::class, 'stream'])->name('series.stream');
 });
 
 Route::get('/login', [AuthController::class, 'loginForm'])->name('login');
