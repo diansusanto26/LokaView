@@ -22,7 +22,13 @@ class User extends Authenticatable
         'name',
         'email',
         'password',
+        'coins',
         'role'
+
+    ];
+
+    protected $casts = [
+        'coins' => 'integer',
     ];
 
     /**
