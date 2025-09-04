@@ -71,6 +71,26 @@ class SeriesController extends Controller
                 }
             });
 
+        $qualities = [1080, 720, 480, 360];
+        $availableQualities = [];
+        foreach ($qualities as $q) {
+            $rel = $this->variantRelativePath($episode->video, $q);
+            if (is_file(storage_path('app/public/' . $rel))) {
+                $availableQualities[] = $q;
+            }
+        }
+        $defaultQuality = !empty($availableQualities) ? max($availableQualities) : null;
+
+        return view('pages.series.play', compact(
+            'series',
+            'episode',
+            'coinUnlockedIds',
+            'adAccess',
+            'availableQualities',
+            'defaultQuality'
+        ));
+
+
         return view('pages.series.play', compact('series', 'episode', 'coinUnlockedIds', 'adAccess'));
     }
 
@@ -168,8 +188,20 @@ class SeriesController extends Controller
 
     // ===================== STREAM =====================
 
-    public function stream(SeriesEpisode $episode): StreamedResponse
+
+    public function stream(SeriesEpisode $episode): \Symfony\Component\HttpFoundation\StreamedResponse
     {
+        if (!$this->allowedToWatch($episode)) {
+            abort(403, 'Episode terkunci. Buka dengan koin atau tonton iklan dulu.');
+        }
+
+        $q = request()->integer('q'); // 0/null jika tidak ada
+        $relPath = $this->pickPathForQuality($episode->video, $q);
+        $path = storage_path('app/public/' . $relPath);
+        if (!is_file($path)) {
+            abort(404);
+        }
+
         if (!$this->allowedToWatch($episode)) {
             abort(403, 'Episode terkunci. Buka dengan koin atau tonton iklan dulu.');
         }
@@ -218,6 +250,27 @@ class SeriesController extends Controller
             fclose($fh);
         }, $status, $headers);
     }
+
+    private function variantRelativePath(string $base, int $q): string
+    {
+        $info = pathinfo($base);
+        $dir  = $info['dirname'] !== '.' ? $info['dirname'] . '/' : '';
+        $name = $info['filename'];
+        $ext  = $info['extension'] ?? 'mp4';
+        return $dir . $name . '_' . $q . '.' . $ext;
+    }
+
+    private function pickPathForQuality(string $base, ?int $q): string
+    {
+        if ($q) {
+            $candidate = $this->variantRelativePath($base, $q);
+            if (is_file(storage_path('app/public/' . $candidate))) {
+                return $candidate;
+            }
+        }
+        return ltrim($base, '/');
+    }
+
 
     // ===================== HELPERS =====================
 

@@ -96,12 +96,24 @@
       {{-- PLAYER --}}
       <div class="w-full rounded-xl overflow-hidden shadow-lg bg-black relative">
         <video id="player"
-               class="w-full block bg-black player-el"
-               style="aspect-ratio:16/9"
-               playsinline controls preload="metadata">
-          <source src="{{ route('series.stream', $episode->id) }}" type="video/mp4">
-          Browser Anda tidak mendukung video.
-        </video>
+       class="w-full block bg-black player-el"
+       style="aspect-ratio:16/9"
+       playsinline
+       controls
+       preload="metadata">
+
+  {{-- Fallback: file asli tanpa size (kalau tak ada varian) --}}
+  <source src="{{ route('series.stream', $episode->id) }}" type="video/mp4">
+
+  {{-- Varian resolusi (Plyr akan tampilkan selector kalau ada >= 2 sumber dengan "size") --}}
+  @isset($availableQualities)
+    @foreach($availableQualities as $q)
+      <source src="{{ route('series.stream', $episode->id) }}?q={{ $q }}" type="video/mp4" size="{{ $q }}">
+    @endforeach
+  @endisset
+  Browser Anda tidak mendukung video.
+</video>
+
 
         {{-- indikator double-tap --}}
         <div id="seek-left-fb"  class="seek-feedback left">⏪ −10s</div>
@@ -307,14 +319,20 @@
     let player = null;
     try {
       player = new Plyr(videoEl, {
-        controls: ['play-large','play','progress','current-time','mute','volume','settings','fullscreen'],
-        settings: ['speed'],
-        speed: { selected: 1, options: [0.5, 1, 1.25, 1.5, 2] },
-        seekTime: 5,
-        keyboard: { focused: false, global: false },
-        hideControls: false,
-        fullscreen: { enabled: true, fallback: true, iosNative: true },
-      });
+  controls: ['play-large','play','progress','current-time','mute','volume','settings','fullscreen'],
+  settings: ['speed','quality'],               // <— tampilkan menu quality
+  speed: { selected: 1, options: [0.5, 1, 1.25, 1.5, 2] },
+  quality: {
+    default: {{ $defaultQuality ?? '0' }},    // pilih tertinggi yg tersedia
+    options: @json($availableQualities ?? []),// daftar resolusi tersedia
+    forced: false                              // Plyr handle switching otomatis
+  },
+  seekTime: 5,
+  keyboard: { focused: false, global: false },
+  hideControls: false,
+  fullscreen: { enabled: true, fallback: true, iosNative: true },
+});
+
     } catch (e) {
       console.warn('Plyr gagal diinisialisasi:', e);
       player = { currentTime: 0, duration: 0, speed: 1, on(){}, once(){}, get playing(){ return !videoEl.paused; } };
